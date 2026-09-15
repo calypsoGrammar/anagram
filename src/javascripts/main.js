@@ -1,5 +1,7 @@
 "use strict";
 
+import { findExactAnagramSets } from "./anagram-search.js";
+
 class AnagramSet{
   constructor(anagramWords, lettersRemaining) {
     this.anagramWords = anagramWords;
@@ -27,6 +29,7 @@ activateButton.onclick = function(){
 const anagramText = document.getElementById("anagramText");
 const resultDiv = document.getElementById("resultDiv");
 const resultDiv2 = document.getElementById("resultDiv2");
+const anagramSearchStatus = document.getElementById("anagramSearchStatus");
 
 const filterWords = document.getElementById("filterWords");
 filterWords.onkeyup = function(){
@@ -252,120 +255,19 @@ async function GetAnagrams2()
 
 async function FilterAnagrams()
 {
-  if(variations.length == 0) return;
-  
   anagramSets.length = 0;
-  
-  for(let i = 0; i < variations.length; i++)
-  {
-    let tempAnagramList = [];
-    tempAnagramList.push(variations[i]);
-    
-    let getLettersRemaining = Array.from(stringToAnagram);
-    
-    for(let c = 0; c < variations[i].length; c++)
-    {
-      let ind = getLettersRemaining.indexOf(variations[i][c]);
-      getLettersRemaining.splice(ind, 1);
-    }
-    
-    let uniqueLettersRemaining = [];
-    
-    for(let f = 0; f < getLettersRemaining.length; f++)
-    {
-      let isLogged = false;
-      for(let v = 0; v < uniqueLettersRemaining.length; v++)
-      {
-        if(uniqueLettersRemaining[v].letter == getLettersRemaining[f])
-        {
-          uniqueLettersRemaining[v].count++;
-          isLogged = true;
-        }
-      }
-      if(isLogged === false)
-      {
-        let newLog = new LetterCount();
-        newLog.letter = getLettersRemaining[f];
-        newLog.count = 1;
-        uniqueLettersRemaining.push(newLog);
-      }
-    }
-    
-    for(let v = 0; v < variations.length; v++)
-    {
-      // don't bother if the word is longer than remaining letters
-      if(variations[v].length > getLettersRemaining.length) continue;
-      
-      let checkInWord = true;
-      // don't bother if the word contains letters not in remaining letters
-      for(let c = 0; c < variations[v].length; c++)
-      {
-        if(!getLettersRemaining.includes(variations[v][c]))
-        {
-          checkInWord = false;
-        }
-      }
-      if(!checkInWord) continue;
-      
-      // check that letters count in word doesn't exceed letters remaining count
-      let uniqueLettersWord = [];
-  
-      for(let f = 0; f < variations[v].length; f++)
-      {
-        let isLogged = false;
-        for(let n = 0; n < uniqueLettersWord.length; n++)
-        {
-          if(uniqueLettersWord[n].letter == variations[v][f])
-          {
-            uniqueLettersWord[n].count++;
-            isLogged = true;
-          }
-        }
-        if(isLogged === false)
-        {
-          let newLog = new LetterCount();
-          newLog.letter = variations[v][f];
-          newLog.count = 1;
-          uniqueLettersWord.push(newLog);
-        }
-      }
-      
-      for(let f = 0; f < uniqueLettersWord.length; f++)
-      {
-        for(let i = 0; i < uniqueLettersRemaining.length; i++)
-        {
-          if(uniqueLettersRemaining[i].letter == uniqueLettersWord[f].letter)
-          {
-            if(uniqueLettersWord[f].count > uniqueLettersRemaining[i].count) checkInWord = false;
-          }
-          if(!checkInWord) continue;
-        }
-        if(!checkInWord) continue;
-      }
-      if(!checkInWord) continue;
-      
-      // if word fits within the letters remaining, add and remove its letters from letters remaining
-      if(checkInWord)
-      {
-        tempAnagramList.push(variations[v]);
-        for(let c = 0; c < variations[v].length; c++)
-        {
-          let ind = getLettersRemaining.indexOf(variations[v][c]);
-          getLettersRemaining.splice(ind, 1);
-        }
-      }
-    }
-    if(getLettersRemaining.length == 0)
-    {
-      tempAnagramList.sort();
-      anagramSets.push(tempAnagramList);
-    }
+  anagramSearchStatus.textContent = "";
+  if(variations.length == 0) {
+    PresentWords2(anagramSets);
+    return;
   }
-  
-  anagramSets = anagramSets.map(JSON.stringify).reverse() // convert to JSON string the array content, then reverse it (to check from end to begining)
-  .filter(function(item, index, anagramSets){ return anagramSets.indexOf(item, index + 1) === -1; }) // check if there is any occurence of the item in whole array
-  .reverse().map(JSON.parse) // revert it to original state
-  
+
+  const result = findExactAnagramSets(stringToAnagram, variations);
+  anagramSets = result.sets;
+  if(result.truncated) {
+    anagramSearchStatus.textContent = `Showing the first ${anagramSets.length} exact sets after searching ${result.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
+  }
+
   PresentWords2(anagramSets);
 }
 
