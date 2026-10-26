@@ -1,6 +1,7 @@
 "use strict";
 
 import { findExactAnagramSets } from "./anagram-search.js";
+import { normalizeToken, prepareSearchInput, INPUT_HELP } from "./normalize.js";
 
 class AnagramSet{
   constructor(anagramWords, lettersRemaining) {
@@ -48,6 +49,8 @@ setLengths.onchange = function(){
   FilterSetsbyLength(setLengths.value);
 };
 
+anagramText.title = INPUT_HELP;
+
 const searchButton = document.getElementById("searchButton");
 
 let stringToAnagram = "";
@@ -74,13 +77,7 @@ function ChangeDictionary(value)
 
   $.get(path, function (data)
   {
-    wordStore = data.split("\n");
-    for(let i = 0; i < wordStore.length; i++)
-    {
-      wordStore[i] = wordStore[i].replace("\n", "");
-      wordStore[i] = wordStore[i].replace(" ", "");
-      wordStore[i] = wordStore[i].replace(/\s/g, '');
-    }
+    wordStore = data.split("\n").map(normalizeToken).filter(word => word.length > 0);
   });
 }
 
@@ -154,8 +151,9 @@ async function PresentWords2(array)
 
 async function GetAnagrams2()
 {
-  stringToAnagram = anagramText.value;
-  stringToAnagram = stringToAnagram.trim();
+  const prepared = prepareSearchInput(anagramText.value);
+  stringToAnagram = prepared.letters;
+  anagramSearchStatus.textContent = prepared.message;
   let sLength = stringToAnagram.length;
   
   if(sLength == 0) return;
@@ -256,7 +254,6 @@ async function GetAnagrams2()
 async function FilterAnagrams()
 {
   anagramSets.length = 0;
-  anagramSearchStatus.textContent = "";
   if(variations.length == 0) {
     PresentWords2(anagramSets);
     return;
@@ -265,7 +262,7 @@ async function FilterAnagrams()
   const result = findExactAnagramSets(stringToAnagram, variations);
   anagramSets = result.sets;
   if(result.truncated) {
-    anagramSearchStatus.textContent = `Showing the first ${anagramSets.length} exact sets after searching ${result.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
+    anagramSearchStatus.textContent += ` Showing the first ${anagramSets.length} exact sets after searching ${result.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
   }
 
   PresentWords2(anagramSets);
