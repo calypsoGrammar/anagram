@@ -27,6 +27,11 @@ activateButton.onclick = function(){
   GetAnagrams2();
 };
 
+const cancelButton = document.getElementById("cancelButton");
+cancelButton.onclick = function(){
+  CancelSearch();
+};
+
 const anagramText = document.getElementById("anagramText");
 const resultDiv = document.getElementById("resultDiv");
 const resultDiv2 = document.getElementById("resultDiv2");
@@ -64,6 +69,81 @@ let sOptions = [];
 
 let timeOut = undefined;
 
+let worker = undefined;
+let requestId = 0;
+let dictionaryReady = false;
+let searching = false;
+let lastDictionaryPath = "./1000.txt";
+
+function StartWorker()
+{
+  if(worker) worker.terminate();
+  worker = new Worker(new URL("./anagram-worker.js", import.meta.url), { type: "module" });
+  worker.onmessage = HandleWorkerMessage;
+  worker.onerror = function(){ FinishSearch("The search worker failed."); };
+}
+
+function SetSearching(value)
+{
+  searching = value;
+  cancelButton.hidden = !value;
+  activateButton.disabled = value;
+}
+
+function FinishSearch(message)
+{
+  SetSearching(false);
+  anagramSearchStatus.textContent = message;
+}
+
+function HandleWorkerMessage({ data })
+{
+  if(data.id !== requestId) return;
+
+  if(data.type == "loaded")
+  {
+    dictionaryReady = true;
+    anagramSearchStatus.textContent = "";
+  }
+  else if(data.type == "words")
+  {
+    variations = data.words;
+    PresentWords(variations);
+    anagramSearchStatus.textContent = `Found ${variations.length.toLocaleString()} words. Searching for exact sets...`;
+  }
+  else if(data.type == "progress")
+  {
+    anagramSearchStatus.textContent = `Searching for exact sets: ${data.visitedNodes.toLocaleString()} of ${data.maxNodes.toLocaleString()} nodes, ${data.sets.toLocaleString()} sets so far...`;
+  }
+  else if(data.type == "sets")
+  {
+    anagramSets = data.sets;
+    let message = "";
+    if(data.truncated)
+    {
+      const reason = data.timedOut ? "hit the time limit" : "reached the search limit";
+      message = `Showing the first ${anagramSets.length} exact sets; the search ${reason} after ${data.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
+    }
+    PresentWords2(anagramSets);
+    FinishSearch(message);
+  }
+  else if(data.type == "error")
+  {
+    FinishSearch(`Search failed: ${data.message}`);
+  }
+}
+
+function CancelSearch()
+{
+  if(!searching) return;
+  // Terminating the worker is the only way to interrupt synchronous work.
+  requestId++;
+  StartWorker();
+  dictionaryReady = false;
+  worker.postMessage({ type: "load", path: new URL(lastDictionaryPath, document.baseURI).href, id: requestId });
+  FinishSearch("Search cancelled.");
+}
+
 function ChangeDictionary(value)
 { 
   let path = "./1000.txt";
@@ -75,6 +155,13 @@ function ChangeDictionary(value)
   if(value == 4) path = "./english2.txt";
   if(value == 5) path = "./allwords.txt";
 
+  lastDictionaryPath = path;
+  dictionaryReady = false;
+  SetSearching(false);
+  requestId++;
+  StartWorker();
+  anagramSearchStatus.textContent = "Loading dictionary...";
+  worker.postMessage({ type: "load", path: new URL(path, document.baseURI).href, id: requestId });
   $.get(path, function (data)
   {
     wordStore = data.split("\n").map(normalizeToken).filter(word => word.length > 0);
@@ -149,8 +236,12 @@ async function PresentWords2(array)
   }
 }
 
-async function GetAnagrams2()
+function GetAnagrams2()
 {
+  stringToAnagram = anagramText.value.trim();
+
+  if(stringToAnagram.length == 0) return;
+  if(!dictionaryReady || searching) return;
   const prepared = prepareSearchInput(anagramText.value);
   stringToAnagram = prepared.letters;
   anagramSearchStatus.textContent = prepared.message;
@@ -265,7 +356,11 @@ async function FilterAnagrams()
     anagramSearchStatus.textContent += ` Showing the first ${anagramSets.length} exact sets after searching ${result.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
   }
 
-  PresentWords2(anagramSets);
+  variations = [];
+  anagramSets = [];
+  SetSearching(true);
+  anagramSearchStatus.textContent = "Searching...";
+  worker.postMessage({ type: "search", target: stringToAnagram, id: requestId });
 }
 
 function FilterWords()
@@ -370,4 +465,4 @@ anagramText.onkeydown = function(event)
   }
 };
 
-document.addEventListener("DOMContentLoaded", ChangeDictionary(0));
+document.addEventListener("DOMContentLoaded", function(){ ChangeDictionary(0); });

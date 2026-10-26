@@ -1,5 +1,26 @@
 const DEFAULT_MAX_RESULTS = 2_000;
 const DEFAULT_MAX_NODES = 100_000;
+const DEFAULT_MAX_MILLIS = 5_000;
+const CLOCK_CHECK_INTERVAL = 1_024;
+
+/**
+ * Returns the unique dictionary words that can be built from a subset of the
+ * target letters, longest first (ties keep dictionary order).
+ */
+export function findCandidateWords(target, dictionary) {
+  const targetLetters = countLetters(target);
+  const seen = new Set();
+  const found = [];
+
+  for (const raw of dictionary) {
+    const word = raw.replace(/\s/g, "");
+    if (word.length === 0 || word.length > target.length || seen.has(word)) continue;
+    seen.add(word);
+    if (fitsWithin(countLetters(word), targetLetters)) found.push(word);
+  }
+
+  return found.sort((left, right) => right.length - left.length);
+}
 
 function countLetters(word) {
   const counts = new Map();
@@ -36,6 +57,8 @@ function subtract(remaining, letters) {
 export function findExactAnagramSets(target, candidates, {
   maxResults = DEFAULT_MAX_RESULTS,
   maxNodes = DEFAULT_MAX_NODES,
+  maxMillis = DEFAULT_MAX_MILLIS,
+  onProgress = undefined,
 } = {}) {
   if (!Number.isInteger(maxResults) || maxResults < 1) {
     throw new RangeError("maxResults must be a positive integer");
@@ -44,6 +67,12 @@ export function findExactAnagramSets(target, candidates, {
     throw new RangeError("maxNodes must be a positive integer");
   }
 
+  if (!(maxMillis > 0)) {
+    throw new RangeError("maxMillis must be a positive number");
+  }
+
+  const startedAt = Date.now();
+  let timedOut = false;
   const targetLetters = countLetters(target);
   const targetLength = target.length;
   const words = [...new Set(candidates)]
@@ -57,11 +86,19 @@ export function findExactAnagramSets(target, candidates, {
   let truncated = false;
 
   function search(startIndex, remaining, remainingLength, selectedWords) {
-    if (visitedNodes >= maxNodes) {
+    if (timedOut || visitedNodes >= maxNodes) {
       truncated = true;
       return;
     }
     visitedNodes++;
+
+    if (visitedNodes % CLOCK_CHECK_INTERVAL === 0) {
+      if (Date.now() - startedAt >= maxMillis) {
+        timedOut = truncated = true;
+        return;
+      }
+      onProgress?.({ visitedNodes, maxNodes, sets: sets.length });
+    }
 
     if (remainingLength === 0) {
       if (sets.length >= maxResults) {
@@ -91,5 +128,5 @@ export function findExactAnagramSets(target, candidates, {
 
   search(0, targetLetters, targetLength, []);
 
-  return { sets, truncated, visitedNodes };
+  return { sets, truncated, timedOut, visitedNodes };
 }

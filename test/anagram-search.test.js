@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findExactAnagramSets } from "../src/javascripts/anagram-search.js";
+import { findCandidateWords, findExactAnagramSets } from "../src/javascripts/anagram-search.js";
 
 test("backtracks when an earlier fitting word blocks a valid combination", () => {
   const result = findExactAnagramSets("abcdef", ["a", "bc", "b", "cdef", "def"]);
@@ -42,4 +42,26 @@ test("reports an explicit bound for representative larger inputs", () => {
   assert.equal(result.sets.length, 10);
   assert.equal(result.truncated, true);
   assert.ok(result.visitedNodes <= 500);
+});
+
+test("findCandidateWords keeps only unique buildable words, longest first", () => {
+  assert.deepEqual(
+    findCandidateWords("listen", ["tin", "silent", "tin", "xyz", "lit", "toolong!", "", "ne"]),
+    ["silent", "tin", "lit", "ne"],
+  );
+});
+
+test("stops with a time-out and progress reports on runaway searches", () => {
+  const words = [..."abcdefghij"].flatMap((a) => [..."abcdefghij"].map((b) => a + b));
+  let reports = 0;
+  const result = findExactAnagramSets("abcdefghij".repeat(6), words, {
+    maxNodes: 50_000_000,
+    maxResults: 50_000_000,
+    maxMillis: 50,
+    onProgress: () => reports++,
+  });
+
+  assert.equal(result.truncated, true);
+  assert.equal(result.timedOut, true);
+  assert.ok(reports > 0);
 });
