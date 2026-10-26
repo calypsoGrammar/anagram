@@ -1,19 +1,12 @@
 "use strict";
 
-import { findExactAnagramSets } from "./anagram-search.js";
+import { findExactAnagramSets, findFittingWords } from "./anagram-search.js";
 import { normalizeToken, prepareSearchInput, INPUT_HELP } from "./normalize.js";
 
 class AnagramSet{
   constructor(anagramWords, lettersRemaining) {
     this.anagramWords = anagramWords;
     this.lettersRemaining = lettersRemaining;
-  }
-}
-
-class LetterCount{
-  constructor(letter, count) {
-    this.letter = letter;
-    this.count = count;
   }
 }
 
@@ -263,94 +256,8 @@ function GetAnagrams2()
   }
   anagramSearchStatus.textContent = `${inputMessage} Searching…`.trim();
   
-  variations = [];
-  
-  let anagramLetterCount = [];
-  
-  for(let i = 0; i < sLength; i++)
-  {
-    let isLogged = false;
-    for(let v = 0; v < anagramLetterCount.length; v++)
-    {
-      if(anagramLetterCount[v].letter == stringToAnagram[i])
-      {
-        anagramLetterCount[v].count++;
-        isLogged = true;
-      }
-    }
-    if(isLogged === false)
-    {
-      let newLog = new LetterCount();
-      newLog.letter = stringToAnagram[i];
-      newLog.count = 1;
-      anagramLetterCount.push(newLog);
-    }
-  }
- 
-  for(let i = 0; i < wordStore.length; i++)
-  {
-    // if word is longer than anagram can't be allowed
-    if(wordStore[i].length > sLength) continue;
-    
-    let checkInWord = true;
-    
-    let uniqueLetters = [];
-    
-    for(let c = 0; c < wordStore[i].length; c++)
-    {
-      // check that there are no words outside the target string
-      if(!stringToAnagram.includes(wordStore[i][c]))
-      {
-        checkInWord = false;
-        continue;
-      }
-      // count the unique letters in the word to check once completed
-      let isLogged = false;
-      for(let v = 0; v < uniqueLetters.length; v++)
-      {
-        if(uniqueLetters[v].letter == wordStore[i][c])
-        {
-          uniqueLetters[v].count++;
-          isLogged = true;
-        }
-      }
-      if(isLogged === false)
-      {
-        let newLog = new LetterCount();
-        newLog.letter = wordStore[i][c];
-        newLog.count = 1;
-        uniqueLetters.push(newLog);
-      }
-    }
-    
-    // check that word doesn't contain more unique letters than anagram
-    for(let v = 0; v < uniqueLetters.length; v++)
-    {
-      for(let c = 0; c < anagramLetterCount.length; c++)
-      {
-        if(uniqueLetters[v].letter === anagramLetterCount[c].letter)
-        {
-          // have to have the same number of each letter
-          if(uniqueLetters[v].count > anagramLetterCount[c].count) checkInWord = false;
-        }
-      }
-    }
-    
-    if(checkInWord == false) continue;
-    
-    variations.push(wordStore[i]);
-  }
-  
-  variations.sort(function(a, b){
-  // ASC  -> a.length - b.length
-  // DESC -> b.length - a.length
-  return b.length - a.length;
-  });
-  
-  variations = variations.map(JSON.stringify).reverse() // convert to JSON string the array content, then reverse it (to check from end to begining)
-  .filter(function(item, index, variations){ return variations.indexOf(item, index + 1) === -1; }) // check if there is any occurence of the item in whole array
-  .reverse().map(JSON.parse) // revert it to original state
-  
+  variations = findFittingWords(stringToAnagram, wordStore);
+
   PresentWords(variations);
   await FilterAnagrams();
   ReportResults();
