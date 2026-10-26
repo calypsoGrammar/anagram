@@ -1,21 +1,5 @@
 "use strict";
 
-import { findExactAnagramSets } from "./anagram-search.js";
-
-class AnagramSet{
-  constructor(anagramWords, lettersRemaining) {
-    this.anagramWords = anagramWords;
-    this.lettersRemaining = lettersRemaining;
-  }
-}
-
-class LetterCount{
-  constructor(letter, count) {
-    this.letter = letter;
-    this.count = count;
-  }
-}
-
 const dictionary = document.getElementById("dictionary");
 dictionary.onchange = function(){
   ChangeDictionary(dictionary.value);
@@ -24,6 +8,11 @@ dictionary.onchange = function(){
 const activateButton = document.getElementById("activateButton");
 activateButton.onclick = function(){
   GetAnagrams2();
+};
+
+const cancelButton = document.getElementById("cancelButton");
+cancelButton.onclick = function(){
+  CancelSearch();
 };
 
 const anagramText = document.getElementById("anagramText");
@@ -61,6 +50,81 @@ let sOptions = [];
 
 let timeOut = undefined;
 
+let worker = undefined;
+let requestId = 0;
+let dictionaryReady = false;
+let searching = false;
+let lastDictionaryPath = "./1000.txt";
+
+function StartWorker()
+{
+  if(worker) worker.terminate();
+  worker = new Worker(new URL("./anagram-worker.js", import.meta.url), { type: "module" });
+  worker.onmessage = HandleWorkerMessage;
+  worker.onerror = function(){ FinishSearch("The search worker failed."); };
+}
+
+function SetSearching(value)
+{
+  searching = value;
+  cancelButton.hidden = !value;
+  activateButton.disabled = value;
+}
+
+function FinishSearch(message)
+{
+  SetSearching(false);
+  anagramSearchStatus.textContent = message;
+}
+
+function HandleWorkerMessage({ data })
+{
+  if(data.id !== requestId) return;
+
+  if(data.type == "loaded")
+  {
+    dictionaryReady = true;
+    anagramSearchStatus.textContent = "";
+  }
+  else if(data.type == "words")
+  {
+    variations = data.words;
+    PresentWords(variations);
+    anagramSearchStatus.textContent = `Found ${variations.length.toLocaleString()} words. Searching for exact sets...`;
+  }
+  else if(data.type == "progress")
+  {
+    anagramSearchStatus.textContent = `Searching for exact sets: ${data.visitedNodes.toLocaleString()} of ${data.maxNodes.toLocaleString()} nodes, ${data.sets.toLocaleString()} sets so far...`;
+  }
+  else if(data.type == "sets")
+  {
+    anagramSets = data.sets;
+    let message = "";
+    if(data.truncated)
+    {
+      const reason = data.timedOut ? "hit the time limit" : "reached the search limit";
+      message = `Showing the first ${anagramSets.length} exact sets; the search ${reason} after ${data.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
+    }
+    PresentWords2(anagramSets);
+    FinishSearch(message);
+  }
+  else if(data.type == "error")
+  {
+    FinishSearch(`Search failed: ${data.message}`);
+  }
+}
+
+function CancelSearch()
+{
+  if(!searching) return;
+  // Terminating the worker is the only way to interrupt synchronous work.
+  requestId++;
+  StartWorker();
+  dictionaryReady = false;
+  worker.postMessage({ type: "load", path: lastDictionaryPath, id: requestId });
+  FinishSearch("Search cancelled.");
+}
+
 function ChangeDictionary(value)
 { 
   let path = "./1000.txt";
@@ -72,16 +136,13 @@ function ChangeDictionary(value)
   if(value == 4) path = "./english2.txt";
   if(value == 5) path = "./allwords.txt";
 
-  $.get(path, function (data)
-  {
-    wordStore = data.split("\n");
-    for(let i = 0; i < wordStore.length; i++)
-    {
-      wordStore[i] = wordStore[i].replace("\n", "");
-      wordStore[i] = wordStore[i].replace(" ", "");
-      wordStore[i] = wordStore[i].replace(/\s/g, '');
-    }
-  });
+  lastDictionaryPath = path;
+  dictionaryReady = false;
+  SetSearching(false);
+  requestId++;
+  StartWorker();
+  anagramSearchStatus.textContent = "Loading dictionary...";
+  worker.postMessage({ type: "load", path: path, id: requestId });
 }
 
 async function PresentWords(array)
@@ -152,123 +213,18 @@ async function PresentWords2(array)
   }
 }
 
-async function GetAnagrams2()
+function GetAnagrams2()
 {
-  stringToAnagram = anagramText.value;
-  stringToAnagram = stringToAnagram.trim();
-  let sLength = stringToAnagram.length;
-  
-  if(sLength == 0) return;
-  if(wordStore.length == 0) return;
-  
+  stringToAnagram = anagramText.value.trim();
+
+  if(stringToAnagram.length == 0) return;
+  if(!dictionaryReady || searching) return;
+
   variations = [];
-  
-  let anagramLetterCount = [];
-  
-  for(let i = 0; i < sLength; i++)
-  {
-    let isLogged = false;
-    for(let v = 0; v < anagramLetterCount.length; v++)
-    {
-      if(anagramLetterCount[v].letter == stringToAnagram[i])
-      {
-        anagramLetterCount[v].count++;
-        isLogged = true;
-      }
-    }
-    if(isLogged === false)
-    {
-      let newLog = new LetterCount();
-      newLog.letter = stringToAnagram[i];
-      newLog.count = 1;
-      anagramLetterCount.push(newLog);
-    }
-  }
- 
-  for(let i = 0; i < wordStore.length; i++)
-  {
-    // if word is longer than anagram can't be allowed
-    if(wordStore[i].length > sLength) continue;
-    
-    let checkInWord = true;
-    
-    let uniqueLetters = [];
-    
-    for(let c = 0; c < wordStore[i].length; c++)
-    {
-      // check that there are no words outside the target string
-      if(!stringToAnagram.includes(wordStore[i][c]))
-      {
-        checkInWord = false;
-        continue;
-      }
-      // count the unique letters in the word to check once completed
-      let isLogged = false;
-      for(let v = 0; v < uniqueLetters.length; v++)
-      {
-        if(uniqueLetters[v].letter == wordStore[i][c])
-        {
-          uniqueLetters[v].count++;
-          isLogged = true;
-        }
-      }
-      if(isLogged === false)
-      {
-        let newLog = new LetterCount();
-        newLog.letter = wordStore[i][c];
-        newLog.count = 1;
-        uniqueLetters.push(newLog);
-      }
-    }
-    
-    // check that word doesn't contain more unique letters than anagram
-    for(let v = 0; v < uniqueLetters.length; v++)
-    {
-      for(let c = 0; c < anagramLetterCount.length; c++)
-      {
-        if(uniqueLetters[v].letter === anagramLetterCount[c].letter)
-        {
-          // have to have the same number of each letter
-          if(uniqueLetters[v].count > anagramLetterCount[c].count) checkInWord = false;
-        }
-      }
-    }
-    
-    if(checkInWord == false) continue;
-    
-    variations.push(wordStore[i]);
-  }
-  
-  variations.sort(function(a, b){
-  // ASC  -> a.length - b.length
-  // DESC -> b.length - a.length
-  return b.length - a.length;
-  });
-  
-  variations = variations.map(JSON.stringify).reverse() // convert to JSON string the array content, then reverse it (to check from end to begining)
-  .filter(function(item, index, variations){ return variations.indexOf(item, index + 1) === -1; }) // check if there is any occurence of the item in whole array
-  .reverse().map(JSON.parse) // revert it to original state
-  
-  PresentWords(variations);
-  FilterAnagrams();
-}
-
-async function FilterAnagrams()
-{
-  anagramSets.length = 0;
-  anagramSearchStatus.textContent = "";
-  if(variations.length == 0) {
-    PresentWords2(anagramSets);
-    return;
-  }
-
-  const result = findExactAnagramSets(stringToAnagram, variations);
-  anagramSets = result.sets;
-  if(result.truncated) {
-    anagramSearchStatus.textContent = `Showing the first ${anagramSets.length} exact sets after searching ${result.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
-  }
-
-  PresentWords2(anagramSets);
+  anagramSets = [];
+  SetSearching(true);
+  anagramSearchStatus.textContent = "Searching...";
+  worker.postMessage({ type: "search", target: stringToAnagram, id: requestId });
 }
 
 function FilterWords()
@@ -373,4 +329,4 @@ anagramText.onkeydown = function(event)
   }
 };
 
-document.addEventListener("DOMContentLoaded", ChangeDictionary(0));
+document.addEventListener("DOMContentLoaded", function(){ ChangeDictionary(0); });
