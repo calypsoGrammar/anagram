@@ -68,6 +68,8 @@ let wOptions = [];
 let sOptions = [];
 
 let timeOut = undefined;
+let inputMessage = "";
+let truncationMessage = "";
 
 let worker = undefined;
 let requestId = 0;
@@ -155,6 +157,7 @@ function ChangeDictionary(value)
   if(value == 4) path = "./english2.txt";
   if(value == 5) path = "./allwords.txt";
 
+  anagramSearchStatus.textContent = "Loading dictionary…";
   lastDictionaryPath = path;
   dictionaryReady = false;
   SetSearching(false);
@@ -165,6 +168,10 @@ function ChangeDictionary(value)
   $.get(path, function (data)
   {
     wordStore = data.split("\n").map(normalizeToken).filter(word => word.length > 0);
+    anagramSearchStatus.textContent = "Dictionary loaded.";
+  }).fail(function ()
+  {
+    anagramSearchStatus.textContent = "The dictionary could not be loaded.";
   });
 }
 
@@ -244,11 +251,17 @@ function GetAnagrams2()
   if(!dictionaryReady || searching) return;
   const prepared = prepareSearchInput(anagramText.value);
   stringToAnagram = prepared.letters;
-  anagramSearchStatus.textContent = prepared.message;
+  inputMessage = prepared.message;
+  anagramSearchStatus.textContent = inputMessage;
   let sLength = stringToAnagram.length;
   
   if(sLength == 0) return;
-  if(wordStore.length == 0) return;
+  if(wordStore.length == 0)
+  {
+    anagramSearchStatus.textContent = "The dictionary is not loaded yet.";
+    return;
+  }
+  anagramSearchStatus.textContent = `${inputMessage} Searching…`.trim();
   
   variations = [];
   
@@ -339,12 +352,14 @@ function GetAnagrams2()
   .reverse().map(JSON.parse) // revert it to original state
   
   PresentWords(variations);
-  FilterAnagrams();
+  await FilterAnagrams();
+  ReportResults();
 }
 
 async function FilterAnagrams()
 {
   anagramSets.length = 0;
+  truncationMessage = "";
   if(variations.length == 0) {
     PresentWords2(anagramSets);
     return;
@@ -353,7 +368,7 @@ async function FilterAnagrams()
   const result = findExactAnagramSets(stringToAnagram, variations);
   anagramSets = result.sets;
   if(result.truncated) {
-    anagramSearchStatus.textContent += ` Showing the first ${anagramSets.length} exact sets after searching ${result.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
+    truncationMessage = ` Showing the first ${anagramSets.length} exact sets after searching ${result.visitedNodes.toLocaleString()} nodes. Refine the input to see more.`;
   }
 
   variations = [];
@@ -361,6 +376,12 @@ async function FilterAnagrams()
   SetSearching(true);
   anagramSearchStatus.textContent = "Searching...";
   worker.postMessage({ type: "search", target: stringToAnagram, id: requestId });
+}
+
+function ReportResults()
+{
+  const summary = `${variations.length} words and ${anagramSets.length} anagram sets found.`;
+  anagramSearchStatus.textContent = `${inputMessage} ${summary}${truncationMessage}`.trim();
 }
 
 function FilterWords()
