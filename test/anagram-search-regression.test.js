@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findExactAnagramSets } from "../src/javascripts/anagram-search.js";
+import { findExactAnagramSets, findFittingWords } from "../src/javascripts/anagram-search.js";
 
 function sortedLetters(words) {
   return [...words.join("")].sort().join("");
@@ -71,4 +71,19 @@ test("duplicate-heavy candidates are de-duplicated", () => {
   const result = findExactAnagramSets("abab", Array.from({ length: 10_000 }, () => "ab"));
 
   assert.deepEqual(result.sets, [["ab", "ab"]]);
+});
+
+test("findFittingWords rejects words needing more copies of a letter than the input has", () => {
+  assert.deepEqual(findFittingWords("listen", ["tin", "tint", "sees", "silent"]), ["silent", "tin"]);
+});
+
+test("findFittingWords rejects letters absent from the input and over-long or empty words", () => {
+  assert.deepEqual(findFittingWords("abc", ["abd", "x", "", "abcd", "cab"]), ["cab"]);
+});
+
+test("findFittingWords de-duplicates and orders longest first, stably", () => {
+  assert.deepEqual(
+    findFittingWords("abcd", ["a", "bc", "ab", "a", "abcd", "cd", "bc"]),
+    ["abcd", "ab", "cd", "bc", "a"],
+  );
 });

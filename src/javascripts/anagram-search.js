@@ -30,6 +30,33 @@ function subtract(remaining, letters) {
 }
 
 /**
+ * Returns the distinct words that can be built from the target letters
+ * (respecting letter counts), longest first. Equal-length words keep their
+ * input order, and for duplicates the last occurrence's position is kept.
+ */
+export function findFittingWords(target, words) {
+  const targetLetters = countLetters(target);
+  const fitting = [];
+
+  for (const word of words) {
+    if (word.length === 0 || word.length > target.length) continue;
+    if (fitsWithin(countLetters(word), targetLetters)) fitting.push(word);
+  }
+
+  fitting.sort((left, right) => right.length - left.length);
+
+  const seen = new Set();
+  const result = [];
+  for (let index = fitting.length - 1; index >= 0; index--) {
+    if (seen.has(fitting[index])) continue;
+    seen.add(fitting[index]);
+    result.push(fitting[index]);
+  }
+
+  return result.reverse();
+}
+
+/**
  * Finds every canonical multiset of candidates that uses the target letters
  * exactly, subject to explicit result and search-node limits.
  */
