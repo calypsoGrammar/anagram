@@ -121,7 +121,7 @@ function CancelSearch()
   requestId++;
   StartWorker();
   dictionaryReady = false;
-  worker.postMessage({ type: "load", path: lastDictionaryPath, id: requestId });
+  worker.postMessage({ type: "load", path: new URL(lastDictionaryPath, document.baseURI).href, id: requestId });
   FinishSearch("Search cancelled.");
 }
 
@@ -142,7 +142,7 @@ function ChangeDictionary(value)
   requestId++;
   StartWorker();
   anagramSearchStatus.textContent = "Loading dictionary...";
-  worker.postMessage({ type: "load", path: path, id: requestId });
+  worker.postMessage({ type: "load", path: new URL(path, document.baseURI).href, id: requestId });
 }
 
 async function PresentWords(array)
