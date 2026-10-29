@@ -236,7 +236,7 @@ async function PresentWords2(array)
   }
 }
 
-function GetAnagrams2()
+async function GetAnagrams2()
 {
   stringToAnagram = anagramText.value.trim();
 
