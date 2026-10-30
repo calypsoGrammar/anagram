@@ -4,9 +4,9 @@
 # Archon never auto-merges a change to it. Every key is described in
 # archon-v3's docs/workflow-reference.md.
 tracker:
-  kind: linear
+  kind: chronology
   provider:
-    # Linear project "anagram".
+    # Work Registry project "anagram".
     project_id: "fba1d959-a88b-4cba-90f2-375616bd73eb"
 hooks:
   # Each attempt starts from a fresh checkout; install dependencies so the
@@ -74,7 +74,7 @@ archon:
     default: opus
     fallback: sol
 ---
-You are working on anagram, Linear issue {{ issue.identifier }}: {{ issue.title }}.
+You are working on anagram, issue {{ issue.identifier }}: {{ issue.title }}.
 {% if attempt %}
 This is attempt {{ attempt }}. Earlier attempts were discarded, and this workspace is a fresh checkout.
 {% endif %}
