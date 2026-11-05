@@ -31,8 +31,9 @@ npm run build     # production build into dist/
 npm run preview   # serve dist/ locally
 ```
 
-Deployment: the app is fully static. `npm run build` writes `dist/`, which can
-be served by any static file host. Vite is configured with `base: ''`, so
+Deployment: the app has no server component, but it is not self-contained
+(see "External runtime dependencies" below). `npm run build` writes `dist/`, which can
+be served by any static file host that clients can reach over HTTP(S). Vite is configured with `base: ''`, so
 assets use relative URLs and the site can be served from a sub-path. The
 word-list files in `public/` are copied into `dist/` unchanged and are fetched
 at run time. No deployment pipeline is defined in this repository; CI
@@ -71,11 +72,6 @@ ef748f5f28a1368277596fc490330c74d531b48917a51fb571b9e4fe54310b62  20000.txt
 
 ## Intentional limitations and browser assumptions
 
-- Dictionary entries are not normalised on load (only whitespace is removed),
-  while input is lower-cased and de-accented. Entries containing capitals,
-  apostrophes, hyphens or other punctuation therefore can never match, which
-  affects many entries in `allwords.txt` (for example, about 79,000 contain a
-  capital letter). Use `english1.txt`/`english2.txt` for plain lower-case words.
 - Results depend entirely on the chosen list; absence of a word means it is not
   in that list, not that it is not a word. There is no proper-noun, plural or
   language handling beyond what the list contains. The UI is English only.
@@ -85,6 +81,31 @@ ef748f5f28a1368277596fc490330c74d531b48917a51fb571b9e4fe54310b62  20000.txt
   browsers qualify. The page must be served over HTTP(S): `fetch` of the word
   lists does not work from `file://`.
 - The largest list is about 4.9 MB and is downloaded when selected.
+
+### External runtime dependencies
+
+`index.html` loads two resources from third-party CDNs at run time; they are
+not bundled by the build:
+
+- jQuery 3.6.4 from `code.jquery.com`. `src/javascripts/main.js` uses `$.get`
+  to load the word list for the main-thread search. If jQuery is blocked or the
+  page is offline (strict CSP, isolated network, ad blocker), `$` is undefined,
+  no dictionary is stored and every search stops with "The dictionary is not
+  loaded yet."
+- modern-normalize 1.1.0 from `cdn.jsdelivr.net` (CSS reset). Without it the
+  page still works but is styled differently.
+
+### Known inconsistency (observed behaviour, not confirmed as intended)
+
+Two search pipelines exist in `main.js`. The main thread normalises every
+dictionary entry with `normalizeToken` (so `Don't` becomes `dont`) and runs a
+first pass over that store. The worker (`anagram-worker.js`) keeps raw entries
+(only whitespace removed), and when it posts its `words` message those results
+replace the main-thread ones. Entries with capitals or punctuation (about
+79,000 in `allwords.txt` contain a capital letter) therefore appear to be dropped
+from the final results, even though `normalize.js` describes shared
+normalisation of input and dictionary tokens. Whether this is intended is for
+the owner to decide; `english1.txt`/`english2.txt` are mostly plain lower-case.
 
 ## Multi-word result enumeration
 
@@ -100,8 +121,10 @@ Use a more specific input to continue exploring the space.
 
 ## Off-main-thread search and performance budgets
 
-Dictionary loading, candidate filtering and the set search run in a Web Worker
-(`src/javascripts/anagram-worker.js`), so the page stays responsive. The status
+The worker (`src/javascripts/anagram-worker.js`) loads the dictionary and runs
+candidate filtering and the set search, so the page stays responsive. `main.js`
+also loads and normalises the list on the main thread and runs a first,
+synchronous filtering and set pass there before the worker's results replace it. The status
 line shows progress (reported every 1,024 search nodes) and a "Cancel search"
 button terminates the worker and reloads the dictionary.
 
