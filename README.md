@@ -47,7 +47,8 @@ baseline required by Tailwind CSS 4, and sufficient for module workers and
 The toolchain is Vite 8 and Tailwind CSS 4 (via `@tailwindcss/postcss`), which
 need Node `^20.19.0 || >=22.12.0` (see `engines`). Tailwind 4 was chosen as the
 current supported track; its base styles replace the former CDN-loaded
-modern-normalize. CI runs `npm audit --audit-level=high`.
+modern-normalize. Two Tailwind 3 defaults dropped in Tailwind 4 (pointer cursor on
+buttons, grey placeholder text) are restored in `src/stylesheets/style.css`. CI runs `npm audit --audit-level=high`.
 
 ## Tests
 
