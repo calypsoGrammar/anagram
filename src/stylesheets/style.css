@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@source "../../index.html";
+@source "../javascripts";
 
 /* Visible keyboard focus; inset so it is not clipped by the full-height controls. */
 input:focus-visible,

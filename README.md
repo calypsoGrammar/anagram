@@ -37,6 +37,18 @@ largest dictionary and input, so the 5 s time limit is a backstop for slow
 devices rather than the usual stopping rule. Candidate filtering is a single
 linear scan per search and is not time-limited; it runs in the worker.
 
+## Browser support and toolchain
+
+Supported browsers: Chrome and Edge 111+, Firefox 128+, Safari 16.4+ (the
+baseline required by Tailwind CSS 4, and sufficient for module workers and
+`fetch`). The same targets are set in `browserslist` in `package.json` and
+`build.target` in `vite.config.js`; keep all three in step.
+
+The toolchain is Vite 8 and Tailwind CSS 4 (via `@tailwindcss/postcss`), which
+need Node `^20.19.0 || >=22.12.0` (see `engines`). Tailwind 4 was chosen as the
+current supported track; its base styles replace the former CDN-loaded
+modern-normalize. CI runs `npm audit --audit-level=high`.
+
 ## Tests
 
 `npm test` runs the unit tests and a Playwright browser test
