@@ -158,14 +158,24 @@ function ChangeDictionary(value)
   StartWorker();
   anagramSearchStatus.textContent = "Loading dictionary...";
   worker.postMessage({ type: "load", path: new URL(path, document.baseURI).href, id: requestId });
-  $.get(path, function (data)
-  {
-    wordStore = data.split("\n").map(normalizeToken).filter(word => word.length > 0);
-    anagramSearchStatus.textContent = "Dictionary loaded.";
-  }).fail(function ()
-  {
-    anagramSearchStatus.textContent = "The dictionary could not be loaded.";
-  });
+  const loadId = requestId;
+  fetch(path)
+    .then(function (response)
+    {
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.text();
+    })
+    .then(function (data)
+    {
+      if(loadId !== requestId) return;
+      wordStore = data.split("\n").map(normalizeToken).filter(word => word.length > 0);
+      anagramSearchStatus.textContent = "Dictionary loaded.";
+    })
+    .catch(function ()
+    {
+      if(loadId !== requestId) return;
+      anagramSearchStatus.textContent = "The dictionary could not be loaded.";
+    });
 }
 
 async function PresentWords(array)

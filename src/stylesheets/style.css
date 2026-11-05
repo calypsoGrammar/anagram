@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@source "../../index.html";
+@source "../javascripts";
+
+/* Tailwind 3 defaults that Tailwind 4 dropped; kept so the look is unchanged. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  ::placeholder {
+    color: #9ca3af;
+  }
+}
 
 /* Visible keyboard focus; inset so it is not clipped by the full-height controls. */
 input:focus-visible,

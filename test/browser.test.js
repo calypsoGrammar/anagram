@@ -43,6 +43,10 @@ test("worker-backed search works in a real browser", { timeout: 120_000 }, async
     page.on("response", (r) => { if (r.status() >= 400 && r.url().startsWith(url)) failures.push(`${r.status()} ${r.url()}`); });
     await page.goto(url);
 
+    // Tailwind 3 look is preserved: pointer cursor on buttons, grey placeholders.
+    assert.equal(await page.$eval("#activateButton", (el) => getComputedStyle(el).cursor), "pointer");
+    assert.equal(await page.$eval("#anagramText", (el) => getComputedStyle(el, "::placeholder").color), "rgb(156, 163, 175)");
+
     // Default dictionary loads and a search fills both result panes.
     await page.waitForFunction(() => document.getElementById("anagramSearchStatus").textContent === "");
     await page.fill("#anagramText", "listen");
