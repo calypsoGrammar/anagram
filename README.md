@@ -36,8 +36,17 @@ Deployment: the app has no server component, but it is not self-contained
 be served by any static file host that clients can reach over HTTP(S). Vite is configured with `base: ''`, so
 assets use relative URLs and the site can be served from a sub-path. The
 word-list files in `public/` are copied into `dist/` unchanged and are fetched
-at run time. No deployment pipeline is defined in this repository; CI
-(`.github/workflows/ci.yml`) only runs `npm test` and `npm run build`.
+at run time. CI (`.github/workflows/ci.yml`) runs `npm audit`, `npm test` and
+`npm run build`.
+
+The site is published to GitHub Pages at
+<https://calypsogrammar.github.io/anagram/> by hand: Actions → **deploy** →
+Run workflow, with **Dry run** unticked. It uses the shared Pages deploy in
+`calypsoGrammar/deploy-workflows`, which builds `dist/` from a commit on main
+whose CI `test-and-build` job passed. Merging to main does not publish. To roll
+back, run the same workflow with an earlier commit as `ref`, or tick
+`rollback` to publish the `stable` tag (`stable.yml` maintains it). The Pages
+source must be "GitHub Actions".
 
 ## Bundled word lists
 
