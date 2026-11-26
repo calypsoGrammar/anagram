@@ -39,14 +39,15 @@ word-list files in `public/` are copied into `dist/` unchanged and are fetched
 at run time. CI (`.github/workflows/ci.yml`) runs `npm audit`, `npm test` and
 `npm run build`.
 
-The site is published to GitHub Pages at
-<https://calypsogrammar.github.io/anagram/> by hand: Actions → **deploy** →
-Run workflow, with **Dry run** unticked. It uses the shared Pages deploy in
-`calypsoGrammar/deploy-workflows`, which builds `dist/` from a commit on main
-whose CI `test-and-build` job passed. Merging to main does not publish. To roll
+The site is published to Cloudflare Pages at
+<https://anagram.calypsogrammar.com/> by hand: Actions → **deploy** →
+Run workflow, with **Dry run** unticked. It uses the shared Cloudflare Pages
+deploy in `calypsoGrammar/deploy-workflows`, which builds `dist/` from a commit
+on main whose CI `test-and-build` job passed and uploads it. Merging to main does not publish. To roll
 back, run the same workflow with an earlier commit as `ref`, or tick
-`rollback` to publish the `stable` tag (`stable.yml` maintains it). The Pages
-source must be "GitHub Actions".
+`rollback` to publish the `stable` tag (`stable.yml` maintains it). The
+repository needs the `CLOUDFLARE_API_TOKEN` secret and the `CLOUDFLARE_ACCOUNT_ID`
+variable.
 
 ## Bundled word lists
 
